@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Price drop: 2%</title>
+
+                                <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                                  <tbody>
+                                    <tr>
+                                      <table>
+                                        <thead>
+                                          <tr>
+                                            <th align="left">Id</th>
+                                            <th align="left">Title</th>
+                                            <th align="left">Price</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for product in products %}
+                                          <tr>
+                                            <td align="left">{{ product.id }}</td>
+                                            <td align="left">{{ product.title }}</td>
+                                            <td align="left">{{ product.price }}</td>
+                                          </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                      </table>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+

@@ -6,61 +6,51 @@ from django.conf import settings
 from django.utils import timezone
 from redis import Redis
 
-from alerts.models import ProductAlert, Update
-from alerts.utils import (
+from notifications.models import Notification, SendUpdate
+from notifications.utils import (
     save_ebay_product,
-    send_alert_notification,
+    send_notification,
     get_product_price_change_report,
     serialize_reports
 )
-from taskapp.celery import app
+from core.celery import app
 
 logger = logging.getLogger(__name__)
 
 
 @app.task
-def send_notification(alert_id: int) -> None:
-    """
-    fetch products from ebay and send email notification
-    :param alert_id: alert id
-    :return: None
-    """
+def send_user_notification(notify_id: int) -> None:
     try:
-        alert = ProductAlert.objects.get(id=alert_id)
-    except ProductAlert.DoesNotExist:
-        logger.error(f"alert does not exist by id {alert_id}")
+        notification = Notification.objects.get(id=notify_id)
+    except Notification.DoesNotExist:
+        logger.error(f"Notification doesn't exist {notify_id}")
     else:
-        logging.info(f"fetching ebay products for alert id {alert.id}")
-        products = save_ebay_product(alert.id)
+        logging.info(f"get ebay products for  {notification.id}")
+        products = save_ebay_product(notification.id)
 
-        logging.info(f"sending email notification to {alert.email} for"
-                     f" alert id {alert.id}")
-        # Send email notification here and save update
-        subject = f" New alert for your product {alert.search_phrase}"
-        send_alert_notification(subject, alert, products,
-                                "emails/product_alert.html")
-        Update.objects.create(alert=alert)
+        logging.info(f"sending notification to {notification.email} for"
+                     f" notification id {notification.id}")
+        subject = f" Notification for your search :  {notification.search_text}"
+        send_notification(subject, notification, products,
+                                "emails/prodnotify.html")
+        SendUpdate.objects.create(alert=notification)
 
 
 @app.task
-def product_alert_notification():
-    """
-    Check for periodic alert notification
-    :return: None
-    """
+def product_user_notification():
     logging.info("Checking for alert")
-    alerts = ProductAlert.objects.all()
-    for alert in alerts:
+    notifications = Notification.objects.all()
+    for notify in notifications:
         try:
-            last_update = alert.update_set.latest('timestamp').timestamp
-        except Update.DoesNotExist:
+            last_update = notify.update_set.latest('timestamp').timestamp
+        except SendUpdate.DoesNotExist:
             last_update = None
 
         time_diff = (timezone.now() - last_update).seconds/60 if \
             last_update else float('inf')
-        if time_diff >= alert.time_interval:
+        if time_diff >= notify.time_interval:
             # this difference can be little un-accurate
-            send_notification.delay(alert_id=alert.id)
+            send_notification.delay(notification=notify.id)
 
 
 @app.task()
@@ -70,31 +60,31 @@ def product_price_change_alert():
     :return:
     """
     redis = Redis(settings.REDIS_HOST)
-    alerts = ProductAlert.objects.all()
-    for alert in alerts:
-        report = get_product_price_change_report(alert)
+    notifications = Notification.objects.all()
+    for notify in notifications:
+        report = get_product_price_change_report(notify)
 
-        if report['decreased_2_per']:
+        if True:
             # sending 2% decrease alert to the user, if any
-            send_alert_notification(
+            send_notification(
                 subject="2% price drop!",
-                alert=alert,
+                alert=notify,
                 products=report['decreased_2_per'],
                 template="emails/price_change.html"
             )
 
-        # push to report to queue which can be listened by team B
+        # Report to the broker so can be read by Team B
         report = serialize_reports(report)
-        report['alert_id'] = alert.id
-        report['email'] = alert.email
-        redis.rpush(settings.PRICE_REPORT_REDIS_QUEUE, json.dumps(report))
+        report['alert_id'] = notify.id
+        report['email'] = notify.email
+        redis.rpush(settings.NOTIFICATION_QUEUE, json.dumps(report))
 
 
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         crontab(),  # every minute
-        product_alert_notification.s(),
+        product_user_notification.s(),
     )
     sender.add_periodic_task(
         # At 12:00 on every 2nd day-of-month from

@@ -1,21 +1,20 @@
 from django.db import models
-from decimal import Decimal
-
 
 # Create your models here.
 class Notification(models.Model):
     """
-    Store user's alert settingsc
+    Notification Setting Ckass
     """
-    FREQUENCY = (
+    RECURRENCE = (
+        (1, '1 minutes'),
         (2, '2 minutes'),
         (10, '10 minutes'),
         (30, '30 minutes')
     )
 
     email = models.EmailField()
-    text = models.CharField(max_length=225, db_index=True)
-    frequency = models.IntegerField(choices=FREQUENCY)
+    search_text = models.CharField(max_length=225, db_index=True)
+    frequency = models.IntegerField(choices=RECURRENCE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -61,7 +60,7 @@ class Product(models.Model):
         }
 
 
-class Update(models.Model):
+class SendUpdate(models.Model):
     """
     Log of update sent to a user
 

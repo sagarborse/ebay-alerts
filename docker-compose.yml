@@ -3,30 +3,29 @@ services:
   ebay-alerts:
     build: .
     restart: always
-    command: /start.sh
+    command: bash -c "/bin/sh start.sh"
     container_name: ebay-alerts
     volumes:
       - .:/ebay-alerts
     ports:
       - "5000:80"
-      - "1080:1080"
     networks:
       - web-db-net
     env_file:
       - .env
 
-  worker:
-    image: worker
+  celery_worker:
+    image: celery_worker
     build: .
     restart: always
-    command: bash -c "/bin/bash celerystart.sh"
+    command: bash -c "/bin/sh celerystart.sh"
     container_name: worker
     volumes:
-      - .:/commservice
+      - .:/ebay-alerts
     networks:
       - web-db-net
     depends_on:
-      - comm-service
+      - ebay-alerts
     env_file:
       - .env
 
@@ -34,13 +33,41 @@ services:
     image: beat
     build: .
     restart: always
-    command: bash -c "/bin/bash celeryschedulerstart.sh"
+    command: bash -c "/bin/bash celeryscheduler.sh"
     container_name: beat
     volumes:
-      - .:/commservice
+      - .:/ebay-alerts
     networks:
       - web-db-net
     depends_on:
-      - comm-service
+      - ebay-alerts
     env_file:
       - .env
+
+  redis:
+    image: redis:alpine
+    ports:
+      - '6379:6379'
+    networks:
+      - web-db-net
+    env_file:
+      - .env
+
+  shore-postgres-db:
+    image: postgres:11.4
+    container_name: shore-postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: root_user
+      POSTGRES_PASSWORD: root_password
+    ports:
+      - "15432:5432"
+    networks:
+      - web-db-net
+    env_file:
+      - .env
+
+
+networks:
+  web-db-net:
+    name: "web_db_net"

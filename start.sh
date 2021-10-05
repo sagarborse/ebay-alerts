@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/bin/sh
+
 echo "Starting Service"
 if [[ ! -e logs/ebay-alerts.log ]]; then
     mkdir -p logs

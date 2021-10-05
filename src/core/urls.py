@@ -13,9 +13,18 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
-from django.urls import path
+from django.conf import settings
+from django.urls import path, include
+from django.conf.urls.static import static
+from rest_framework_swagger.views import get_swagger_view
+
+schema_view = get_swagger_view(title='Ebay product alert API')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-]
+    path(r'', include('notifications.urls')),
+    path(r'api-doc/', schema_view)
+
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

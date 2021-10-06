@@ -4,7 +4,7 @@ from django.db import models
 # Create your models here.
 class Notification(models.Model):
     RECURRENCE = (
-        (1, '1 minutes'),
+        (1, '1 minutes'), # Added for testing
         (2, '2 minutes'),
         (10, '10 minutes'),
         (30, '30 minutes')

@@ -1,14 +1,12 @@
 import logging
+import requests
 from decimal import Decimal
 from typing import List, Tuple, Dict
-
-import requests
 from django.core.mail import EmailMessage
 from django.db.models import Max, ObjectDoesNotExist
 from django.db.models.functions import Coalesce
 from django.template.loader import get_template
 from django.utils import timezone
-
 from notifications.models import Product, Amount, Notification
 from core.settings import EBAY_APP_ID, EBAY_SANDBOX_URL, EMAIL_HOST_USER
 
@@ -59,17 +57,14 @@ def store_product(notification_id: int) -> List[Product]:
         )
 
         try:
-            # get last price
             last_price = product.amount_set.latest('timestamp')
         except ObjectDoesNotExist:
             _ = Amount.objects.create(amount=amount, product=product)
         else:
             if last_price.amount != Decimal(amount).quantize(Decimal('.01')):
-                # create price, if there is some change inn price
                 _ = Amount.objects.create(amount=amount, product=product)
         products.append(product)
 
-    # sort by price, as it'll be mostly 20 products , this should be fine
     products = sorted(products, key=lambda p: float(p.amount))
 
     return products

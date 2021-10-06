@@ -14,7 +14,8 @@ class TestProductPriceChangeAlert(TestCase):
         # Save data in test database
         # Sample product for no price changes
         self.ebay_response = mock_response()
-        self.product_alert = Notification.objects.create(email="sagarborse90@gmail.com", search_text="mobile", frequency=2)
+        self.product_alert = Notification.objects.create(email="sagarborse90@gmail.com", search_text="mobile",
+                                                         frequency=2)
 
     def test_autoclave_data(self):
         response = autoclave_data(self.ebay_response[0])

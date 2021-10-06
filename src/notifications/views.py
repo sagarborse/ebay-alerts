@@ -1,7 +1,7 @@
 from rest_framework import viewsets
-
 from .models import Notification, Product
 from .serializers import NotificationSerializer, ProductSerializer
+
 
 # Create your views here.
 class NotificationViewSet(viewsets.ModelViewSet):

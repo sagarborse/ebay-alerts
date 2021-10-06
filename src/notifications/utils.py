@@ -30,7 +30,7 @@ def autoclave_data(ebay_item: dict) -> Tuple[dict, float]:
 
 def get_product_info(search_text: str, sorted_by: str = 'amount', limit: int = 20) -> List[dict]:
     ebay_url = EBAY_SANDBOX_URL.format(EBAY_APP_ID, search_text, sorted_by,
-                                    limit)
+                                       limit)
 
     response = requests.get(ebay_url)
     response = response.json()
@@ -93,12 +93,13 @@ def send_notification(subject: str, notify: Notification, products: List[Product
     mail.content_subtype = "html"
     return mail.send()
 
+
 def send_report(notify: Notification) -> Dict[str, List[Product]]:
-    PRODUCT_PRICE_CHANGE_DAYS = 2
+    AMOUNT_CHANGE_DAYS = 2
     now = timezone.now()
-    from_date = now - timezone.timedelta(days=int(PRODUCT_PRICE_CHANGE_DAYS))
+    from_date = now - timezone.timedelta(days=int(AMOUNT_CHANGE_DAYS))
     report = {
-        'decreased_2_per': [],
+        'two_perc_decrease': [],
         'decreased': [],
         'no_change': []
     }
@@ -107,14 +108,14 @@ def send_report(notify: Notification) -> Dict[str, List[Product]]:
         last_max_price = product.amount_set.filter(
             timestamp=from_date.date(),
         ).aggregate(
-            max_price=Coalesce(Max('price'), Decimal('0.0'))
+            max_price=Coalesce(Max('amount'), Decimal('0.0'))
         )['max_price']
         current_amount = product.amount
         if current_amount < last_max_price:
             decrease = last_max_price - current_amount
             decrease_perc = (decrease / last_max_price) * Decimal('100.00')
             if decrease_perc >= 2:
-                report['decreased_2_per'].append(product)
+                report['two_perc_decrease'].append(product)
             else:
                 report['decreased'].append(product)
         elif current_amount == last_max_price:
@@ -122,7 +123,7 @@ def send_report(notify: Notification) -> Dict[str, List[Product]]:
     return report
 
 
-def serialize_reports(report: dict) -> dict:
+def formatted_report(report: dict) -> dict:
     ser = {}
     for report, products in report.items():
         ser[report] = [p.dict() for p in products]

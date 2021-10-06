@@ -20,11 +20,11 @@ from django.urls import path, include
 from django.conf.urls.static import static
 from rest_framework_swagger.views import get_swagger_view
 
-schema_view = get_swagger_view(title='Ebay product alert API')
+schema_view = get_swagger_view(title='Ebay Alerts API')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path(r'', include('notifications.urls')),
-    path(r'api-doc/', schema_view)
+    path(r'api-documentation/', schema_view)
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

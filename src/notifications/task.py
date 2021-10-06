@@ -8,9 +8,9 @@ from redis import Redis
 
 from notifications.models import Notification, SendUpdate
 from notifications.utils import (
-    save_ebay_product,
+    store_product,
     send_notification,
-    get_product_price_change_report,
+    send_report,
     serialize_reports
 )
 from core.celery import app
@@ -26,14 +26,14 @@ def send_user_notification(notify_id: int) -> None:
         logger.error(f"Notification doesn't exist {notify_id}")
     else:
         logging.info(f"get ebay products for  {notification.id}")
-        products = save_ebay_product(notification.id)
+        products = store_product(notification.id)
 
         logging.info(f"sending notification to {notification.email} for"
                      f" notification id {notification.id}")
         subject = f" Notification for your search :  {notification.search_text}"
         send_notification(subject, notification, products,
-                                "emails/prodnotify.html")
-        SendUpdate.objects.create(alert=notification)
+                                "email_templates/product_notification.html")
+        SendUpdate.objects.create(notification=notification)
 
 
 @app.task
@@ -41,6 +41,7 @@ def product_user_notification():
     logging.info("Checking for alert")
     notifications = Notification.objects.all()
     for notify in notifications:
+        send_notification.delay(notification=notify.id)
         try:
             last_update = notify.update_set.latest('timestamp').timestamp
         except SendUpdate.DoesNotExist:
@@ -54,23 +55,23 @@ def product_user_notification():
 
 
 @app.task()
-def product_price_change_alert():
+def product_amount_change_alert():
     """
     Send price change alert to user and Team B
     :return:
     """
-    redis = Redis(settings.REDIS_HOST)
+    redis = Redis(REDIS_HOST)
     notifications = Notification.objects.all()
     for notify in notifications:
-        report = get_product_price_change_report(notify)
+        report = send_report(notify)
 
         if True:
             # sending 2% decrease alert to the user, if any
             send_notification(
                 subject="2% price drop!",
-                alert=notify,
+                notify=notify,
                 products=report['decreased_2_per'],
-                template="emails/price_change.html"
+                template="email_templates/price_notification.html"
             )
 
         # Report to the broker so can be read by Team B
@@ -87,15 +88,6 @@ def setup_periodic_tasks(sender, **kwargs):
         product_user_notification.s(),
     )
     sender.add_periodic_task(
-        # At 12:00 on every 2nd day-of-month from
-        # 1 through 31  https://crontab.guru/#0_12_1-31/2_*_*
-        # crontab(
-        #     minute='0',
-        #     hour='12',
-        #     day_of_month='1-31/2',
-        #     month_of_year='*',
-        #     day_of_week='*'
-        # ),
         crontab(),
         product_price_change_alert.s()
     )

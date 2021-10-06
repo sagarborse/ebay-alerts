@@ -1,10 +1,8 @@
 from django.db import models
 
+
 # Create your models here.
 class Notification(models.Model):
-    """
-    Notification Setting Ckass
-    """
     RECURRENCE = (
         (1, '1 minutes'),
         (2, '2 minutes'),
@@ -26,7 +24,7 @@ class Notification(models.Model):
 
 
 class Product(models.Model):
-    ebay_prd_id  = models.CharField(max_length=100, db_index=True)
+    ebay_prd_id = models.CharField(max_length=100, db_index=True)
     title = models.CharField(max_length=225)
     location = models.TextField()
     img_url = models.URLField()
@@ -42,44 +40,29 @@ class Product(models.Model):
 
     @property
     def amount(self):
-        """
-        :return: last checked price of the product
-        """
-        return self.price_set.latest('timestamp').amount
+        return self.amount_set.latest('timestamp').amount
 
     def dict(self):
-        """
-        Return json serializable dict
-        :return:
-        """
         return {
             'id': str(self.id),
-            'ebay_id': self.ebay_id,
+            'ebay_prd_id': self.ebay_prd_id,
             'title': self.title,
-            'price': self.price
+            'amount': self.amount
         }
 
 
 class SendUpdate(models.Model):
-    """
-    Log of update sent to a user
-
-    this is also being used to check next update
-    """
     notification = models.ForeignKey(Notification, on_delete=models.CASCADE)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f'{self.notification.search_phrase}: {self.timestamp.ctime()}'
+        return f'{self.notification.search_text}: {self.timestamp.ctime()}'
 
 
-class Price(models.Model):
-    """
-    Store product price
-    """
+class Amount(models.Model):
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f'{self.product.title}: {self.price}'
+        return f'{self.product.title}: {self.amount}'

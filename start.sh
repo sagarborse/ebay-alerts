@@ -17,8 +17,12 @@ fi
 cd /ebay-alerts/src
 python -u manage.py makemigrations
 python -u manage.py migrate
+python -u manage.py test tests/
 #python  manage.py collectstatic --noinput
 
 python -u /ebay-alerts/src/manage.py runserver 0.0.0.0:80
+
+
+#In production
 #gunicorn --workers=${WORKERS} -b 0.0.0.0:${APP_PORT} --access-logfile /ebay-alerts/logs/gunicorn-access.logs --error-logfile /ebay-alerts/logs/gunicorn-errors.logs core.wsgi
 

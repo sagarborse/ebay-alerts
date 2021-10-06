@@ -9,28 +9,29 @@ from django.db.models.functions import Coalesce
 from django.template.loader import get_template
 from django.utils import timezone
 
-from notifications.models import Product, Price, Notification
+from notifications.models import Product, Amount, Notification
 from core.settings import EBAY_APP_ID, EBAY_SANDBOX_URL, EMAIL_HOST_USER
 
 logger = logging.getLogger(__name__)
 
 
 def autoclave_data(ebay_item: dict) -> Tuple[dict, float]:
-    product_data = {
-        'ebay_id': ebay_item['itemId'][0],
+    data = {
+        'ebay_prd_id': ebay_item['itemId'][0],
         'title': ebay_item["title"][0],
-        'image_url': ebay_item["viewItemURL"][0],
+        'img_url': ebay_item["viewItemURL"][0],
         "location": ebay_item["location"][0]
     }
-    price: float = ebay_item["sellingStatus"][0]["currentPrice"][
+    amount: float = ebay_item["sellingStatus"][0]["currentPrice"][
         0]["__value__"]
 
-    return product_data, price
+    return data, amount
 
 
-def get_ebay_product(search_phrase: str, sorted_by: str = 'price', limit: int = 20) -> List[dict]:
-    ebay_url = EBAY_BASE_URL.format(EBAY_APP_ID, search_phrase, sorted_by,
+def get_product_info(search_text: str, sorted_by: str = 'amount', limit: int = 20) -> List[dict]:
+    ebay_url = EBAY_SANDBOX_URL.format(EBAY_APP_ID, search_text, sorted_by,
                                     limit)
+
     response = requests.get(ebay_url)
     response = response.json()
 
@@ -40,41 +41,44 @@ def get_ebay_product(search_phrase: str, sorted_by: str = 'price', limit: int = 
             "searchResult"][0]["item"]
     else:
         logger.error("Error: {} in fetching product for :{}".format(
-            response["errorMessage"], search_phrase))
+            response["errorMessage"], search_text))
 
     return product_data
 
 
-def save_ebay_product(notification_id: int) -> List[Product]:
+def store_product(notification_id: int) -> List[Product]:
     notification = Notification.objects.get(id=notification_id)
-    ebay_items = get_ebay_product(notification.search_phrase)
+    ebay_items = get_product_info(notification.search_text)
     autoclave = [autoclave_data(item) for item in ebay_items]
     products = []
-    for product_data, price in autoclave:
+    for product_data, amount in autoclave:
         product, _ = Product.objects.get_or_create(
-            ebay_id=product_data['ebay_id'],
+            ebay_prd_id=product_data['ebay_prd_id'],
             notification=notification,
             defaults=product_data
         )
 
         try:
             # get last price
-            last_price = product.price_set.latest('timestamp')
+            last_price = product.amount_set.latest('timestamp')
         except ObjectDoesNotExist:
-            _ = Price.objects.create(price=price, product=product)
+            _ = Amount.objects.create(amount=amount, product=product)
         else:
-            if last_price.price != Decimal(price).quantize(Decimal('.01')):
+            if last_price.amount != Decimal(amount).quantize(Decimal('.01')):
                 # create price, if there is some change inn price
-                _ = Price.objects.create(price=price, product=product)
+                _ = Amount.objects.create(amount=amount, product=product)
         products.append(product)
 
     # sort by price, as it'll be mostly 20 products , this should be fine
-    products = sorted(products, key=lambda p: float(p.price))
+    products = sorted(products, key=lambda p: float(p.amount))
 
     return products
 
 
 def send_notification(subject: str, notify: Notification, products: List[Product], template: str) -> int:
+    """
+    Sends Email notifications
+    """
     message = get_template(template).render({
         'products': products,
         'notification': notify
@@ -85,11 +89,11 @@ def send_notification(subject: str, notify: Notification, products: List[Product
         from_email=EMAIL_HOST_USER,
         to=[notify.email],
     )
+
     mail.content_subtype = "html"
     return mail.send()
 
-
-def get_product_price_change_report(notify: Notification) -> Dict[str, List[Product]]:
+def send_report(notify: Notification) -> Dict[str, List[Product]]:
     PRODUCT_PRICE_CHANGE_DAYS = 2
     now = timezone.now()
     from_date = now - timezone.timedelta(days=int(PRODUCT_PRICE_CHANGE_DAYS))
@@ -100,20 +104,20 @@ def get_product_price_change_report(notify: Notification) -> Dict[str, List[Prod
     }
     products = Product.objects.filter(notification=notify)
     for product in products:
-        last_max_price = product.price_set.filter(
-            timestamp__date=from_date.date(),
+        last_max_price = product.amount_set.filter(
+            timestamp=from_date.date(),
         ).aggregate(
             max_price=Coalesce(Max('price'), Decimal('0.0'))
         )['max_price']
-        current_price = product.price
-        if current_price < last_max_price:
-            decrease = last_max_price - current_price
+        current_amount = product.amount
+        if current_amount < last_max_price:
+            decrease = last_max_price - current_amount
             decrease_perc = (decrease / last_max_price) * Decimal('100.00')
             if decrease_perc >= 2:
                 report['decreased_2_per'].append(product)
             else:
                 report['decreased'].append(product)
-        elif current_price == last_max_price:
+        elif current_amount == last_max_price:
             report['no_change'].append(product)
     return report
 

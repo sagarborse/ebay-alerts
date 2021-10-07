@@ -155,3 +155,67 @@ EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 
 REST_FRAMEWORK = { 'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema' }
+
+# importing logger settings
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
+    },
+    'formatters': {
+        'large': {
+            'format': '%(asctime)s  %(levelname)s  %(process)d  %(pathname)s  %(funcName)s  %(lineno)d  %(message)s  '
+        },
+        'tiny': {
+            'format': '%(asctime)s  %(message)s  '
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'filters': ['require_debug_true'],
+            'class': 'logging.StreamHandler',
+            'formatter': 'large'
+        },
+        'logfile': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler', #Rotation strategy for logging
+            'when': 'midnight',
+            'interval': 1,
+            'filename': env('LOG_FILE_PATH'),
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': env.list('HANDLERS'),
+            'level': env('DJANGO_LOG_LEVEL'),
+            'propagate': True,
+        },
+        'django.db.backends': {
+            'handlers': ['logfile'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': [],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'logger': {
+            'handlers': ['console', 'logfile'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'celery.task': {
+            'handlers': ['logfile'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}

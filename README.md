@@ -18,7 +18,7 @@ $. ./run_tests.sh
 
 ## Endpoint
 1. http://127.0.0.1:5000
-2. Swagger : http://127.0.0.1:8000/api-documentation
+2. Swagger : http://127.0.0.1:5000/api-documentation
 
 
 ## Description
